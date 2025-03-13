@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
-const SoulboundNFTArtifact = require('../../../smart-contracts/artifacts/contracts/identity/SoulboundNFT.sol/SoulboundNFT.json');
-const CrossChainBridgeArtifact = require('../../../smart-contracts/artifacts/contracts/bridge/CrossChainBridge.sol/CrossChainBridge.json');
+const SoulboundNFTArtifact = require('../../contracts/artifacts/identity/SoulboundNFT.json');
+const CrossChainBridgeArtifact = require('../../contracts/artifacts/bridge/CrossChainBridge.json');
 const config = require('../../config/blockchain.config');
 
 class EthereumService {
@@ -25,10 +25,14 @@ class EthereumService {
       }
 
       // Set up signer if private key is available
-      if (config.ethereum.privateKey) {
-        this.signer = new ethers.Wallet(config.ethereum.privateKey, this.provider);
-      }
-
+      if (config.ethereum.privateKey && 
+        config.ethereum.privateKey !== 'your_private_key_here' &&
+        /^0x[0-9a-fA-F]{64}$/.test(config.ethereum.privateKey)) {
+      this.signer = new ethers.Wallet(config.ethereum.privateKey, this.provider);
+      console.log('Ethereum signer initialized with private key');
+    } else {
+      console.log('No valid Ethereum private key found, running in read-only mode');
+    }
       // Initialize contract instances
       this.initializeContracts();
 

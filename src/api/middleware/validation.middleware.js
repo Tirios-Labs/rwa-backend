@@ -76,14 +76,9 @@ const validationMiddleware = {
   isValidChainId: (chainId) => {
     // Add supported chain IDs
     const supportedChains = [
-      'eth-mainnet',
-      'eth-goerli',
-      'eth-sepolia',
-      'polygon-mainnet',
-      'polygon-mumbai',
-      'solana-mainnet',
-      'solana-devnet',
-      'polygon-amoy'
+     'polygon-amoy',
+    'solana-mainnet',
+    'solana-devnet'
     ];
     
     return supportedChains.includes(chainId);

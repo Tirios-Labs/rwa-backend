@@ -1,230 +1,242 @@
-const identityService = require('../../services/identity/soulbound.service');
-const { validationResult } = require('express-validator');
+const Identity = require('../../models/identity.model');
+const ethereumService = require('../../services/blockchain/ethereum.service');
+const polygonAmoyService = require('../../services/blockchain/polygon.service');
 
 /**
- * Identity controller for handling identity-related operations
+ * Identity controller for API endpoints
  */
-class IdentityController {
+const identityController = {
   /**
    * Register a new identity
    * @param {Object} req - Express request
    * @param {Object} res - Express response
-   * @param {Function} next - Express next middleware
    */
-  async register(req, res, next) {
+  register: async (req, res) => {
     try {
-      // Validate request
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Validation failed', 
-          errors: errors.array() 
-        });
-      }
-
       const { address, did, verifiableCredential } = req.body;
-
-      // Register identity
-      const result = await identityService.registerIdentity({
-        address,
+      
+      // Create identity in database
+      const identity = await Identity.create({
         did,
+        address,
         verifiableCredential
       });
-
+      
       return res.status(201).json({
         success: true,
         message: 'Identity registered successfully',
-        data: result
+        data: identity
       });
     } catch (error) {
-      next(error);
+      console.error('Error registering identity:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error registering identity',
+        error: error.message
+      });
     }
-  }
-
+  },
+  
   /**
    * Update an identity with token ID
    * @param {Object} req - Express request
    * @param {Object} res - Express response
-   * @param {Function} next - Express next middleware
    */
-  async update(req, res, next) {
+  update: async (req, res) => {
     try {
-      // Validate request
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Validation failed', 
-          errors: errors.array() 
-        });
-      }
-
       const { did, tokenId } = req.body;
-
-      // Update identity
-      const result = await identityService.updateIdentity(did, tokenId);
-
+      
+      const identity = await Identity.updateWithTokenId(did, tokenId);
+      
       return res.status(200).json({
         success: true,
         message: 'Identity updated successfully',
-        data: result
+        data: identity
       });
     } catch (error) {
-      next(error);
+      console.error('Error updating identity:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error updating identity',
+        error: error.message
+      });
     }
-  }
-
+  },
+  
   /**
-   * Add a chain identity
+   * Add a chain identity to an existing identity
    * @param {Object} req - Express request
    * @param {Object} res - Express response
-   * @param {Function} next - Express next middleware
    */
-  async addChainIdentity(req, res, next) {
+  addChainIdentity: async (req, res) => {
     try {
-      // Validate request
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Validation failed', 
-          errors: errors.array() 
+      const { tokenId, chainId, chainAddress } = req.body;
+      
+      // Validate token ID exists
+      const identity = await Identity.findByTokenId(tokenId);
+      if (!identity) {
+        return res.status(404).json({
+          success: false,
+          message: 'Identity not found'
         });
       }
-
-      const { tokenId, chainId, chainAddress } = req.body;
-
+      
       // Add chain identity
-      const result = await identityService.addChainIdentity(tokenId, chainId, chainAddress);
-
-      return res.status(201).json({
+      const chainIdentity = await Identity.addChainIdentity(tokenId, chainId, chainAddress);
+      
+      // For Polygon Amoy, we also add it to the blockchain
+      if (chainId === 'polygon-amoy' && polygonAmoyService.soulboundNFTContract) {
+        try {
+          await polygonAmoyService.addChainIdentity({
+            tokenId,
+            chainId,
+            chainAddress
+          });
+        } catch (blockchainError) {
+          console.error('Error adding chain identity to blockchain:', blockchainError);
+          // Continue with database update even if blockchain update fails
+        }
+      }
+      
+      return res.status(200).json({
         success: true,
         message: 'Chain identity added successfully',
-        data: result
+        data: chainIdentity
       });
     } catch (error) {
-      next(error);
+      console.error('Error adding chain identity:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error adding chain identity',
+        error: error.message
+      });
     }
-  }
-
+  },
+  
   /**
    * Get identity by DID
    * @param {Object} req - Express request
    * @param {Object} res - Express response
-   * @param {Function} next - Express next middleware
    */
-  async getByDID(req, res, next) {
+  getByDID: async (req, res) => {
     try {
       const { did } = req.params;
-
-      // Get identity
-      const identity = await identityService.getIdentityByDID(did);
-
+      
+      const identity = await Identity.findByDID(did);
       if (!identity) {
         return res.status(404).json({
           success: false,
           message: 'Identity not found'
         });
       }
-
+      
       return res.status(200).json({
         success: true,
         data: identity
       });
     } catch (error) {
-      next(error);
+      console.error('Error getting identity by DID:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error retrieving identity',
+        error: error.message
+      });
     }
-  }
-
+  },
+  
   /**
    * Get identity by token ID
    * @param {Object} req - Express request
    * @param {Object} res - Express response
-   * @param {Function} next - Express next middleware
    */
-  async getByTokenId(req, res, next) {
+  getByTokenId: async (req, res) => {
     try {
       const { tokenId } = req.params;
-
-      // Get identity
-      const identity = await identityService.getIdentityByTokenId(tokenId);
-
+      
+      const identity = await Identity.findByTokenId(tokenId);
       if (!identity) {
         return res.status(404).json({
           success: false,
           message: 'Identity not found'
         });
       }
-
+      
       return res.status(200).json({
         success: true,
         data: identity
       });
     } catch (error) {
-      next(error);
+      console.error('Error getting identity by token ID:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error retrieving identity',
+        error: error.message
+      });
     }
-  }
-
+  },
+  
   /**
-   * Verify identity chain address
+   * Verify a chain address for an identity
    * @param {Object} req - Express request
    * @param {Object} res - Express response
-   * @param {Function} next - Express next middleware
    */
-  async verifyChainAddress(req, res, next) {
+  verifyChainAddress: async (req, res) => {
     try {
-      // Validate request
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Validation failed', 
-          errors: errors.array() 
+      const { tokenId, chainId, chainAddress } = req.body;
+      const verifier = req.user.id;
+      
+      // First, check if the address matches
+      const isValid = await Identity.verifyChainAddress(tokenId, chainId, chainAddress);
+      
+      if (!isValid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid chain address for this identity'
         });
       }
-
-      const { tokenId, chainId, chainAddress } = req.body;
-
-      // Verify chain address
-      const result = await identityService.verifyChainAddress(tokenId, chainId, chainAddress);
-
+      
+      // If valid, mark it as verified
+      const result = await Identity.verifyChainIdentity(tokenId, chainId, verifier);
+      
       return res.status(200).json({
         success: true,
-        message: 'Chain address verification completed',
-        data: {
-          isVerified: result,
-          tokenId,
-          chainId,
-          chainAddress
-        }
+        message: 'Chain address verified successfully',
+        data: result
       });
     } catch (error) {
-      next(error);
+      console.error('Error verifying chain address:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error verifying chain address',
+        error: error.message
+      });
     }
-  }
-
+  },
+  
   /**
    * Get all chain identities for a token
    * @param {Object} req - Express request
    * @param {Object} res - Express response
-   * @param {Function} next - Express next middleware
    */
-  async getChainIdentities(req, res, next) {
+  getChainIdentities: async (req, res) => {
     try {
       const { tokenId } = req.params;
-
-      // Get chain identities
-      const chainIdentities = await identityService.getChainIdentities(tokenId);
-
+      
+      const chainIdentities = await Identity.getChainIdentities(tokenId);
+      
       return res.status(200).json({
         success: true,
         data: chainIdentities
       });
     } catch (error) {
-      next(error);
+      console.error('Error getting chain identities:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error retrieving chain identities',
+        error: error.message
+      });
     }
   }
-}
+};
 
-module.exports = new IdentityController();
+module.exports = identityController;
