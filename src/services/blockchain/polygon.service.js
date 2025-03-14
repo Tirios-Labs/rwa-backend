@@ -1,4 +1,5 @@
 const { ethers } = require('ethers');
+const axios = require('axios');
 const SoulboundNFTArtifact = require('../../contracts/artifacts/identity/SoulboundNFT.json');
 const CrossChainBridgeArtifact = require('../../contracts/artifacts/bridge/CrossChainBridge.json');
 const config = require('../../config/blockchain.config');
@@ -12,14 +13,13 @@ class PolygonAmoyService {
     this.initialize();
   }
 
- 
-async initialize() {
+  async initialize() {
     try {
       // Set up provider
       this.provider = new ethers.providers.JsonRpcProvider(config.polygonAmoy.rpcUrl);
-  
+ 
       // Set up signer if private key is available and valid
-      if (config.polygonAmoy.privateKey && 
+      if (config.polygonAmoy.privateKey &&
           config.polygonAmoy.privateKey !== 'your_private_key_here' &&
           /^0x[0-9a-fA-F]{64}$/.test(config.polygonAmoy.privateKey)) {
         this.signer = new ethers.Wallet(config.polygonAmoy.privateKey, this.provider);
@@ -27,10 +27,10 @@ async initialize() {
       } else {
         console.log('No valid Polygon Amoy private key found, running in read-only mode');
       }
-  
+ 
       // Initialize contract instances
       this.initializeContracts();
-  
+ 
       console.log('Polygon Amoy service initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Polygon Amoy service:', error);
@@ -75,11 +75,53 @@ async initialize() {
   }
 
   /**
-   * Verify an identity using SoulboundNFT
+   * Upload a verifiable credential to IPFS via Pinata
+   * @param {Object} vc - Verifiable Credential object
+   * @returns {Promise<Object>} IPFS upload result with CID and credential hash
+   */
+  async uploadVcToIpfs(vc) {
+    try {
+      const url = "https://api.pinata.cloud/pinning/pinJSONToIPFS";
+      const response = await axios.post(url, vc, {
+        headers: {
+          Authorization: `Bearer ${config.pinata.jwt}`,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      const cid = response.data.IpfsHash;
+      const vcString = JSON.stringify(vc);
+      const credentialHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(vcString));
+      
+      return { cid, credentialHash };
+    } catch (error) {
+      console.error('Error uploading VC to IPFS:', error);
+      throw new Error('Failed to upload credential to IPFS');
+    }
+  }
+
+  /**
+   * Fetch a verifiable credential from IPFS
+   * @param {string} cid - IPFS CID of the verifiable credential
+   * @returns {Promise<Object>} Verifiable Credential object
+   */
+  async getVcFromIpfs(cid) {
+    try {
+      const url = `https://gateway.pinata.cloud/ipfs/${cid}`;
+      const response = await axios.get(url);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching VC from IPFS:', error);
+      throw new Error('Failed to fetch credential from IPFS');
+    }
+  }
+
+  /**
+   * Verify an identity using SoulboundNFT with privacy enhancement
    * @param {Object} params - Verification parameters
    * @param {string} params.entityAddress - Address to verify
    * @param {string} params.did - Decentralized Identifier
-   * @param {string} params.vc - Verifiable Credential
+   * @param {Object} params.vc - Verifiable Credential object
    * @returns {Promise<Object>} Verification result
    */
   async verifyIdentity(params) {
@@ -91,8 +133,16 @@ async initialize() {
         throw new Error('SoulboundNFT contract not initialized');
       }
 
-      // Execute verification transaction
-      const tx = await this.soulboundNFTContract.verifyIdentity(entityAddress, did, vc);
+      // Upload VC to IPFS and get CID and hash
+      const { cid, credentialHash } = await this.uploadVcToIpfs(vc);
+
+      // Execute verification transaction with hash instead of full VC
+      const tx = await this.soulboundNFTContract.verifyIdentity(
+        entityAddress, 
+        did, 
+        credentialHash,
+        cid
+      );
       const receipt = await tx.wait();
 
       // Parse events to get the token ID
@@ -108,111 +158,8 @@ async initialize() {
         success: true,
         tokenId,
         did,
-        transactionHash: receipt.transactionHash
-      };
-    } catch (error) {
-      console.error('Error verifying identity:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Add a chain identity for cross-chain operations
-   * @param {Object} params - Chain identity parameters
-   * @param {string} params.tokenId - SoulboundNFT token ID
-   * @param {string} params.chainId - Target chain ID
-   * @param {string} params.chainAddress - Address on target chain
-   * @returns {Promise<Object>} Result of adding chain identity
-   */
-  async addChainIdentity(params) {
-    try {
-      const { tokenId, chainId, chainAddress } = params;
-
-      // Check if SoulboundNFT contract is initialized
-      if (!this.soulboundNFTContract) {
-        throw new Error('SoulboundNFT contract not initialized');
-      }
-
-      // Execute add chain identity transaction
-      const tx = await this.soulboundNFTContract.addChainIdentity(tokenId, chainId, chainAddress);
-      const receipt = await tx.wait();
-
-      return {
-        success: true,
-        tokenId,
-        chainId,
-        chainAddress,
-        transactionHash: receipt.transactionHash
-      };
-    } catch (error) {
-      console.error('Error adding chain identity:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Request verification across chains
-   * @param {Object} params - Verification parameters
-   * @param {string} params.did - Decentralized Identifier
-   * @param {string} params.targetChain - Target chain ID
-   * @returns {Promise<Object>} Verification request result
-   */
-  async requestCrossChainVerification(params) {
-    try {
-      const { did, targetChain } = params;
-
-      // Check if CrossChainBridge contract is initialized
-      if (!this.crossChainBridgeContract) {
-        throw new Error('CrossChainBridge contract not initialized');
-      }
-
-      // Execute verification request transaction
-      const tx = await this.crossChainBridgeContract.requestVerification(did, targetChain);
-      const receipt = await tx.wait();
-
-      // Parse events to get the request ID
-      const event = receipt.events.find(e => e.event === 'VerificationRequested');
-      
-      if (!event) {
-        throw new Error('VerificationRequested event not found');
-      }
-
-      const requestId = event.args.requestId.toString();
-
-      return {
-        success: true,
-        requestId,
-        did,
-        targetChain,
-        transactionHash: receipt.transactionHash
-      };
-    } catch (error) {
-      console.error('Error requesting cross-chain verification:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Complete a verification request
-   * @param {string} requestId - Request ID
-   * @param {boolean} verified - Whether the request is verified
-   * @returns {Promise<Object>} Completion result
-   */
-  async completeVerification(requestId, verified) {
-    try {
-      // Check if CrossChainBridge contract is initialized
-      if (!this.crossChainBridgeContract) {
-        throw new Error('CrossChainBridge contract not initialized');
-      }
-
-      // Execute complete verification transaction
-      const tx = await this.crossChainBridgeContract.completeVerification(requestId, verified);
-      const receipt = await tx.wait();
-
-      return {
-        success: true,
-        requestId,
-        verified,
+        credentialHash: credentialHash,
+        credentialCID: cid,
         transactionHash: receipt.transactionHash
       };
     } catch (error) {
@@ -238,8 +185,8 @@ async initialize() {
       }
 
       // Convert data to bytes if it's not already
-      const messageData = typeof data === 'string' ? 
-        ethers.utils.toUtf8Bytes(data) : 
+      const messageData = typeof data === 'string' ?
+        ethers.utils.toUtf8Bytes(data) :
         data;
 
       // Execute send message transaction

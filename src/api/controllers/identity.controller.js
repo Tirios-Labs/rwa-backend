@@ -11,6 +11,12 @@ const identityController = {
    * @param {Object} req - Express request
    * @param {Object} res - Express response
    */
+
+
+
+
+
+  
   register: async (req, res) => {
     try {
       const { address, did, verifiableCredential } = req.body;
@@ -236,6 +242,33 @@ const identityController = {
         error: error.message
       });
     }
+  }
+};
+
+exports.verifyIdentity = async (req, res) => {
+  try {
+    const { address, did, vc } = req.body;
+    const receipt = await polygonService.verifyIdentity(address, did, vc);
+    res.json({ success: true, txHash: receipt.transactionHash });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getIdentity = async (req, res) => {
+  try {
+    const { tokenId, fields } = req.query; // e.g., fields=ownership
+    const credentialHash = await polygonService.getCredentialHash(tokenId);
+    
+    // Assume CID is stored off-chain or passed (for simplicity, you'd need a mapping)
+    const cid = req.query.cid; // In practice, store CID somewhere (e.g., database)
+    const vc = await polygonService.getVcFromIpfs(cid);
+    
+    // Filter VC based on requested fields
+    const filteredVc = fields ? { [fields]: vc.credentialSubject[fields] } : vc;
+    res.json({ credentialHash, vc: filteredVc });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 

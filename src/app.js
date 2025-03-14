@@ -32,6 +32,12 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+app.get('/api/identity/token/:address', (req, res) => {
+  const { address } = req.params;
+  // Logic to return token info
+  res.json({ token_id: "1", did: `did:eth:${address}` }); // Example response
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
