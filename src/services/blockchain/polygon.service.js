@@ -16,7 +16,7 @@ class PolygonAmoyService {
   async initialize() {
     try {
       // Set up provider
-      this.provider = new ethers.providers.JsonRpcProvider(config.polygonAmoy.rpcUrl);
+      this.provider = new ethers.JsonRpcProvider(config.polygonAmoy.rpcUrl);
  
       // Set up signer if private key is available and valid
       if (config.polygonAmoy.privateKey &&

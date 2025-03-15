@@ -19,9 +19,9 @@ class EthereumService {
     try {
       // Set up provider based on environment
       if (process.env.NODE_ENV === 'production') {
-        this.provider = new ethers.providers.JsonRpcProvider(config.ethereum.rpcUrl);
+        this.provider = new ethers.JsonRpcProvider(config.ethereum.rpcUrl);
       } else {
-        this.provider = new ethers.providers.JsonRpcProvider(config.ethereum.testRpcUrl);
+        this.provider = new ethers.JsonRpcProvider(config.ethereum.testRpcUrl);
       }
 
       // Set up signer if private key is available
