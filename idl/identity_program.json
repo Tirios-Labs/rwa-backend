@@ -1,0 +1,447 @@
+{
+    "version": "0.1.0",
+    "name": "identity_program",
+    "instructions": [
+      {
+        "name": "initialize",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": true,
+            "isSigner": true
+          },
+          {
+            "name": "systemProgram",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "receiveMessage",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": true,
+            "isSigner": true
+          },
+          {
+            "name": "wormholeProgram",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "systemProgram",
+            "isMut": false,
+            "isSigner": false
+          },
+          {
+            "name": "tokenMint",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "recipient",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "tokenProgram",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "vaa",
+            "type": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "storeCredential",
+        "accounts": [
+          {
+            "name": "state",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "credential",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": true,
+            "isSigner": true
+          },
+          {
+            "name": "systemProgram",
+            "isMut": false,
+            "isSigner": false
+          }
+        ],
+        "args": [
+          {
+            "name": "credentialHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "revokeCredential",
+        "accounts": [
+          {
+            "name": "credential",
+            "isMut": true,
+            "isSigner": false
+          },
+          {
+            "name": "authority",
+            "isMut": false,
+            "isSigner": true
+          }
+        ],
+        "args": []
+      }
+    ],
+    "accounts": [
+      {
+        "name": "ProgramState",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "authority",
+              "type": "publicKey"
+            },
+            {
+              "name": "verificationCount",
+              "type": "u64"
+            },
+            {
+              "name": "credentialCount",
+              "type": "u64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Credential",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "hash",
+              "type": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            },
+            {
+              "name": "isValid",
+              "type": "bool"
+            },
+            {
+              "name": "owner",
+              "type": "publicKey"
+            },
+            {
+              "name": "revocationDate",
+              "type": "u64"
+            }
+          ]
+        }
+      }
+    ],
+    "types": [
+      {
+        "name": "MessageType",
+        "type": {
+          "kind": "enum",
+          "variants": [
+            {
+              "name": "Verification"
+            },
+            {
+              "name": "VerificationResponse"
+            },
+            {
+              "name": "AssetCreation"
+            },
+            {
+              "name": "TokenTransfer"
+            },
+            {
+              "name": "TokenTransferResponse"
+            },
+            {
+              "name": "CredentialVerification"
+            },
+            {
+              "name": "CredentialVerificationResponse"
+            },
+            {
+              "name": "RoleSynchronization"
+            },
+            {
+              "name": "RoleSyncResponse"
+            },
+            {
+              "name": "DIDResolution"
+            },
+            {
+              "name": "DIDResolutionResponse"
+            }
+          ]
+        }
+      },
+      {
+        "name": "MessagePayload",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "msgType",
+              "type": {
+                "defined": "MessageType"
+              }
+            },
+            {
+              "name": "data",
+              "type": "bytes"
+            },
+            {
+              "name": "timestamp",
+              "type": "u64"
+            },
+            {
+              "name": "messageId",
+              "type": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "events": [
+      {
+        "name": "VerificationEvent",
+        "fields": [
+          {
+            "name": "requestId",
+            "type": "u64",
+            "index": false
+          },
+          {
+            "name": "did",
+            "type": "string",
+            "index": false
+          },
+          {
+            "name": "verified",
+            "type": "bool",
+            "index": false
+          }
+        ]
+      },
+      {
+        "name": "AssetCreationEvent",
+        "fields": [
+          {
+            "name": "issuer",
+            "type": "publicKey",
+            "index": false
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "index": false
+          },
+          {
+            "name": "symbol",
+            "type": "string",
+            "index": false
+          }
+        ]
+      },
+      {
+        "name": "CredentialVerificationEvent",
+        "fields": [
+          {
+            "name": "requestId",
+            "type": "u64",
+            "index": false
+          },
+          {
+            "name": "credentialHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            },
+            "index": false
+          },
+          {
+            "name": "verified",
+            "type": "bool",
+            "index": false
+          }
+        ]
+      },
+      {
+        "name": "RoleSyncEvent",
+        "fields": [
+          {
+            "name": "requestId",
+            "type": "u64",
+            "index": false
+          },
+          {
+            "name": "role",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            },
+            "index": false
+          },
+          {
+            "name": "account",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            },
+            "index": false
+          },
+          {
+            "name": "isGrant",
+            "type": "bool",
+            "index": false
+          }
+        ]
+      },
+      {
+        "name": "DIDResolutionEvent",
+        "fields": [
+          {
+            "name": "requestId",
+            "type": "u64",
+            "index": false
+          },
+          {
+            "name": "did",
+            "type": "string",
+            "index": false
+          },
+          {
+            "name": "resolved",
+            "type": "bool",
+            "index": false
+          }
+        ]
+      },
+      {
+        "name": "CredentialStoredEvent",
+        "fields": [
+          {
+            "name": "credentialPubkey",
+            "type": "publicKey",
+            "index": false
+          },
+          {
+            "name": "credentialHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            },
+            "index": false
+          },
+          {
+            "name": "owner",
+            "type": "publicKey",
+            "index": false
+          }
+        ]
+      },
+      {
+        "name": "CredentialRevokedEvent",
+        "fields": [
+          {
+            "name": "credentialPubkey",
+            "type": "publicKey",
+            "index": false
+          },
+          {
+            "name": "credentialHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            },
+            "index": false
+          },
+          {
+            "name": "revocationDate",
+            "type": "u64",
+            "index": false
+          }
+        ]
+      }
+    ],
+    "errors": [
+      {
+        "code": 6000,
+        "name": "InvalidChain",
+        "msg": "Invalid chain ID"
+      },
+      {
+        "code": 6001,
+        "name": "InvalidMessageType",
+        "msg": "Invalid message type"
+      },
+      {
+        "code": 6002,
+        "name": "StringTooLong",
+        "msg": "String too long"
+      },
+      {
+        "code": 6003,
+        "name": "Unauthorized",
+        "msg": "Unauthorized action"
+      }
+    ],
+    "metadata": {
+      "address": "HU18d3qUrvLK52mQ2AoNKEnV6m1B6VreZ8M7eUE5GBew"
+    }
+  }

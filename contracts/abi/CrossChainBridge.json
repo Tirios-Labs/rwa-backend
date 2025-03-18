@@ -1,0 +1,799 @@
+[
+    {
+        "abi": [
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "_wormhole",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "_tokenBridge",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "chainId",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "endpoint",
+                        "type": "string"
+                    }
+                ],
+                "name": "BridgeEndpointUpdated",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "messageId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "sourceChain",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "bytes",
+                        "name": "data",
+                        "type": "bytes"
+                    }
+                ],
+                "name": "CrossChainMessage",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "bytes32",
+                        "name": "previousAdminRole",
+                        "type": "bytes32"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "bytes32",
+                        "name": "newAdminRole",
+                        "type": "bytes32"
+                    }
+                ],
+                "name": "RoleAdminChanged",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "sender",
+                        "type": "address"
+                    }
+                ],
+                "name": "RoleGranted",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "sender",
+                        "type": "address"
+                    }
+                ],
+                "name": "RoleRevoked",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "transferId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "bool",
+                        "name": "success",
+                        "type": "bool"
+                    }
+                ],
+                "name": "TokenTransferCompleted",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "transferId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "address",
+                        "name": "token",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    }
+                ],
+                "name": "TokenTransferInitiated",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "requestId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "bool",
+                        "name": "verified",
+                        "type": "bool"
+                    }
+                ],
+                "name": "VerificationCompleted",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "requestId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "did",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "sourceChain",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    }
+                ],
+                "name": "VerificationRequested",
+                "type": "event"
+            },
+            {
+                "inputs": [],
+                "name": "BRIDGE_ADMIN_ROLE",
+                "outputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "",
+                        "type": "bytes32"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "DEFAULT_ADMIN_ROLE",
+                "outputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "",
+                        "type": "bytes32"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "ORACLE_ROLE",
+                "outputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "",
+                        "type": "bytes32"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "name": "bridgeEndpoints",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "tokenAddress",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    }
+                ],
+                "name": "bridgeTokens",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "name": "commodityTokens",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "transferId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "success",
+                        "type": "bool"
+                    }
+                ],
+                "name": "completeTokenTransfer",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "requestId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "verified",
+                        "type": "bool"
+                    }
+                ],
+                "name": "completeVerification",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    }
+                ],
+                "name": "getRoleAdmin",
+                "outputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "",
+                        "type": "bytes32"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    }
+                ],
+                "name": "grantRole",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    }
+                ],
+                "name": "hasRole",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint16",
+                        "name": "sourceChain",
+                        "type": "uint16"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "sourceAddress",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "payload",
+                        "type": "bytes"
+                    }
+                ],
+                "name": "receiveCrossChainMessage",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "commodityType",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "tokenAddress",
+                        "type": "address"
+                    }
+                ],
+                "name": "registerCommodityToken",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "issuer",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "name",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "symbol",
+                        "type": "string"
+                    }
+                ],
+                "name": "relayAssetCreation",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    }
+                ],
+                "name": "renounceRole",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "did",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    }
+                ],
+                "name": "requestVerification",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    }
+                ],
+                "name": "revokeRole",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "data",
+                        "type": "bytes"
+                    }
+                ],
+                "name": "sendCrossChainMessage",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "data",
+                        "type": "bytes"
+                    }
+                ],
+                "name": "sendCustomMessage",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "chainId",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "endpoint",
+                        "type": "string"
+                    }
+                ],
+                "name": "setBridgeEndpoint",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes4",
+                        "name": "interfaceId",
+                        "type": "bytes4"
+                    }
+                ],
+                "name": "supportsInterface",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "tokenBridge",
+                "outputs": [
+                    {
+                        "internalType": "contract ITokenBridge",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "tokenTransferRequests",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "transferId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "tokenAddress",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "sourceChain",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "sender",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "completed",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "verificationRequests",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "requestId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "sourceChain",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "did",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "verified",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "timestamp",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "soulboundContract",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "targetChain",
+                        "type": "string"
+                    }
+                ],
+                "name": "verifyIdentity",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "wormhole",
+                "outputs": [
+                    {
+                        "internalType": "contract IWormhole",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ]
+    }
+]
