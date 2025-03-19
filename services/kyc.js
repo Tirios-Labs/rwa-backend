@@ -357,6 +357,98 @@ class KYCService {
       console.error('Error issuing KYC credential:', error);
     }
   }
+
+
+  /**
+ * Generate a zero-knowledge proof for KYC verification
+ * @param {String} userId - User ID
+ * @param {String} verificationId - KYC verification ID
+ * @returns {Promise<Object>} - The ZK proof
+ */
+async generateKycProof(userId, verificationId) {
+  try {
+    // Get verification data
+    const verificationQuery = `
+      SELECT verification_level, status, provider, verification_data
+      FROM kyc_verifications
+      WHERE id = $1 AND user_id = $2
+    `;
+    
+    const result = await this.db.query(verificationQuery, [verificationId, userId]);
+    
+    if (result.rows.length === 0) {
+      throw new Error('Verification not found');
+    }
+    
+    const verification = result.rows[0];
+    
+    if (verification.status !== 'VERIFIED') {
+      throw new Error('KYC verification is not complete');
+    }
+    
+    // Get the user's DID and SBT
+    const userQuery = `
+      SELECT u.did, s.sbt_token_id
+      FROM users u
+      JOIN did_to_sbt s ON u.did = s.did
+      WHERE u.id = $1
+    `;
+    
+    const userResult = await this.db.query(userQuery, [userId]);
+    
+    if (userResult.rows.length === 0) {
+      throw new Error('User DID or SBT not found');
+    }
+    
+    const { did, sbt_token_id } = userResult.rows[0];
+    
+    // Load the ZK proof service
+    const zkProofService = require('./zkProofService');
+    
+    // Prepare the data for the ZK proof
+    const zkData = {
+      did,
+      sbtTokenId: sbt_token_id,
+      kycLevel: verification.verification_level,
+      provider: verification.provider,
+      verificationTimestamp: Date.now()
+    };
+    
+    // Generate the proof
+    const proof = await zkProofService.generateProof('kyc', zkData);
+    
+    // Store the proof reference
+    const proofQuery = `
+      INSERT INTO zk_proofs (
+        user_id, verification_id, proof_type, proof_data, public_inputs, 
+        expires_at, created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING id
+    `;
+    
+    const proofResult = await this.db.query(proofQuery, [
+      userId,
+      verificationId,
+      'KYC',
+      JSON.stringify(proof.proof),
+      JSON.stringify(proof.publicInputs),
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days expiry
+    ]);
+    
+    // Return the proof data
+    return {
+      proofId: proofResult.rows[0].id,
+      zkProof: proof.proof,
+      publicInputs: proof.publicInputs,
+      sbtTokenId: sbt_token_id
+    };
+  } catch (error) {
+    console.error('Error generating KYC proof:', error);
+    throw new Error(`Failed to generate KYC proof: ${error.message}`);
+  }
 }
+}
+
 
 module.exports = KYCService;

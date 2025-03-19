@@ -248,4 +248,35 @@ router.post('/admin/resolve-did', hasRole('BRIDGE_ADMIN'), async (req, res) => {
   }
 });
 
+/**
+ * Generate a new DID with associated SBT
+ */
+router.post('/did', authenticateJWT, async (req, res) => {
+  try {
+    const { chain } = req.body;
+    const walletAddress = req.user.walletAddress;
+   
+    // Initialize DID service
+    const db = req.app.get('db');
+    const redis = req.app.get('redis');
+    const didService = new DIDService(db, redis);
+   
+    // Generate a new DID with atomic SBT minting
+    const result = await didService.generateDID(walletAddress, chain || 'polygon');
+   
+    res.status(201).json({
+      success: true,
+      did: result.did,
+      sbtTokenId: result.sbtTokenId,
+      message: 'DID and SBT generated successfully'
+    });
+  } catch (error) {
+    console.error('Error generating DID:', error);
+    res.status(500).json({
+      success: false,
+      message: `Failed to generate DID: ${error.message}`
+    });
+  }
+});
+
 module.exports = router;

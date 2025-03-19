@@ -20,13 +20,13 @@ try {
 function parseABI(input) {
   // If no input, return an empty array
   if (!input) return [];
-  
+
   // If already an array, return it
   if (Array.isArray(input)) return input;
-  
+
   // If it has an 'abi' property, use that
   if (input.abi && Array.isArray(input.abi)) return input.abi;
-  
+
   // Try parsing as a JSON string
   if (typeof input === 'string') {
     try {
@@ -37,7 +37,7 @@ function parseABI(input) {
       console.error('Failed to parse ABI string:', e);
     }
   }
-  
+
   // If all else fails, return empty array
   console.warn('Could not parse ABI, using empty array');
   return [];
@@ -60,7 +60,7 @@ try {
       console.warn('Fallback bridge ABI not found either');
     }
   }
-  
+
   try {
     soulboundABI = require('../contracts/abi/SoulboundNFT.json');
   } catch (error) {
@@ -72,11 +72,11 @@ try {
       console.warn('Fallback soulbound ABI not found either');
     }
   }
-  
+
   // Parse the ABIs properly
   bridgeABI = parseABI(bridgeABI);
   soulboundABI = parseABI(soulboundABI);
-  
+
 } catch (error) {
   console.error('Error loading ABIs:', error);
 }
@@ -86,7 +86,7 @@ class PolygonService {
     try {
       // Initialize provider
       this.provider = new ethers.JsonRpcProvider(config.polygon.rpcUrl);
-      
+
       // Initialize wallet if private key is provided
       if (config.polygon.privateKey) {
         this.wallet = new ethers.Wallet(config.polygon.privateKey, this.provider);
@@ -94,7 +94,7 @@ class PolygonService {
       } else {
         console.warn('No Polygon private key provided, running in read-only mode');
       }
-      
+
       // Initialize contracts if ABIs are available
       if (bridgeABI.length > 0 && config.polygon.bridgeAddress) {
         try {
@@ -110,7 +110,7 @@ class PolygonService {
       } else {
         console.warn('Bridge contract not initialized due to missing ABI or address');
       }
-      
+
       if (soulboundABI.length > 0 && config.polygon.soulboundNFTAddress) {
         try {
           this.soulboundContract = new ethers.Contract(
@@ -141,25 +141,25 @@ class PolygonService {
       if (!this.wallet) {
         throw new Error('Wallet not initialized');
       }
-      
+
       if (!this.bridgeContract) {
         throw new Error('Bridge contract not initialized');
       }
-      
+
       console.log(`Requesting verification for DID ${did} on chain ${targetChain}`);
-      
+
       const tx = await this.bridgeContract.requestVerification(did, targetChain);
       console.log(`Transaction sent: ${tx.hash}`);
-      
+
       const receipt = await tx.wait();
       console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
-      
+
       // Find the VerificationRequested event
       const event = receipt.events.find(e => e.event === 'VerificationRequested');
       if (!event) {
         throw new Error('Verification request event not found');
       }
-      
+
       return event.args.requestId.toString();
     } catch (error) {
       console.error('Error resolving DID:', error);
@@ -178,7 +178,7 @@ class PolygonService {
       if (!this.soulboundContract) {
         throw new Error('SoulboundNFT contract not initialized');
       }
-      
+
       const tokenId = await this.soulboundContract.getTokenIdByDID(did);
       return tokenId.toNumber();
     } catch (error) {
@@ -199,16 +199,16 @@ class PolygonService {
       if (!this.wallet) {
         throw new Error('Wallet not initialized');
       }
-      
+
       if (!this.soulboundContract) {
         throw new Error('SoulboundNFT contract not initialized');
       }
-      
+
       console.log(`Adding chain identity for token ${tokenId} on chain ${chain}: ${address}`);
-      
+
       const tx = await this.soulboundContract.addChainIdentity(tokenId, chain, address);
       await tx.wait();
-      
+
       return true;
     } catch (error) {
       console.error('Error adding chain identity:', error);
@@ -232,6 +232,150 @@ class PolygonService {
       bridgeAbiItems: bridgeABI.length,
       soulboundAbiItems: soulboundABI.length
     };
+  }
+
+
+  /**
+ * Mint a new Soulbound NFT for a user
+ * @param {String} walletAddress - User wallet address
+ * @param {String} did - The DID to associate
+ * @returns {Promise<Number>} - The token ID
+ */
+  async mintSoulboundNFT(walletAddress, did) {
+    try {
+      // Initialize provider and contract
+      const provider = this.getProvider();
+      const signer = this.getWallet(provider);
+      const soulboundNFTContract = this.getSoulboundNFTContract(provider, signer);
+
+      // Generate a credential hash for the initial identity credential
+      const credentialData = {
+        type: 'IdentityCredential',
+        did: did,
+        createdAt: new Date().toISOString()
+      };
+
+      const credentialHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(JSON.stringify(credentialData))
+      );
+
+      const credentialCID = 'ipfs://placeholder'; // In practice, you'd store this in IPFS
+
+      // Estimate gas for the transaction
+      const gasEstimate = await soulboundNFTContract.estimateGas.verifyIdentity(
+        walletAddress,
+        did,
+        credentialHash,
+        credentialCID
+      );
+
+      // Include a buffer for gas
+      const gasLimit = gasEstimate.mul(120).div(100); // 120% of estimate
+
+      // Execute the transaction
+      const tx = await soulboundNFTContract.verifyIdentity(
+        walletAddress,
+        did,
+        credentialHash,
+        credentialCID,
+        { gasLimit }
+      );
+
+      // Wait for transaction to be confirmed
+      const receipt = await tx.wait(1); // Wait for 1 confirmation
+
+      // Get the token ID from the event logs
+      let tokenId = null;
+      for (const event of receipt.events) {
+        if (event.event === 'IdentityVerified') {
+          tokenId = event.args.tokenId.toNumber();
+          break;
+        }
+      }
+
+      if (!tokenId) {
+        throw new Error('Failed to get token ID from transaction receipt');
+      }
+
+      console.log(`Minted SBT with token ID ${tokenId} for DID ${did}`);
+      return tokenId;
+    } catch (error) {
+      console.error('Error minting Soulbound NFT:', error);
+      throw new Error(`Failed to mint Soulbound NFT: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update an SBT token with credential information
+   * @param {Number} tokenId - The SBT token ID
+   * @param {String} credentialHash - The credential hash
+   * @param {Boolean} isValid - Whether the credential is valid
+   * @returns {Promise<Object>} - Transaction receipt
+   */
+  async updateSbtCredential(tokenId, credentialHash, isValid) {
+    try {
+      // Initialize provider and contract
+      const provider = this.getProvider();
+      const signer = this.getWallet(provider);
+      const soulboundNFTContract = this.getSoulboundNFTContract(provider, signer);
+
+      // Convert string credential hash to bytes32 if needed
+      let bytes32Hash = credentialHash;
+      if (credentialHash.startsWith('0x') && credentialHash.length === 66) {
+        bytes32Hash = credentialHash;
+      } else {
+        bytes32Hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(credentialHash));
+      }
+
+      // Call the contract method
+      const tx = await soulboundNFTContract.addCredentialToToken(
+        tokenId,
+        bytes32Hash,
+        isValid
+      );
+
+      // Wait for the transaction to be confirmed
+      const receipt = await tx.wait(1);
+
+      console.log(`Updated SBT #${tokenId} with credential ${credentialHash}, valid: ${isValid}`);
+      return receipt;
+    } catch (error) {
+      console.error('Error updating SBT credential:', error);
+      throw new Error(`Failed to update SBT credential: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update the SBT Merkle root with new credential status
+   * @param {Number} tokenId - The SBT token ID
+   * @param {String} merkleRoot - The new Merkle root
+   * @returns {Promise<Object>} - Transaction receipt
+   */
+  async updateSbtMerkleRoot(tokenId, merkleRoot) {
+    try {
+      // Initialize provider and contract
+      const provider = this.getProvider();
+      const signer = this.getWallet(provider);
+      const soulboundNFTContract = this.getSoulboundNFTContract(provider, signer);
+
+      // Ensure the merkle root is in the right format
+      const bytes32Root = ethers.utils.hexlify(ethers.utils.zeroPad(merkleRoot, 32));
+
+      // Call the contract method
+      const tx = await soulboundNFTContract.updateCredentialsMerkleRoot(
+        tokenId,
+        bytes32Root
+      );
+
+      // Wait for the transaction to be confirmed
+      const receipt = await tx.wait(1);
+
+      console.log(`Updated SBT #${tokenId} with Merkle root ${merkleRoot}`);
+      return receipt;
+    } catch (error) {
+      console.error('Error updating SBT Merkle root:', error);
+      throw new Error(`Failed to update SBT Merkle root: ${error.message}`);
+    }
   }
 }
 

@@ -11,13 +11,19 @@ class DIDService {
     this.prefix = 'did:example:'; // Replace with your actual DID method
   }
 
-  /**
-   * Generate a new DID
-   * @param {String} walletAddress - The wallet address
-   * @param {String} chain - The blockchain (polygon/solana)
-   * @returns {Promise<String>} - The generated DID
-   */
-  async generateDID(walletAddress, chain = 'polygon') {
+/**
+ * Generate a new DID with linked SBT token
+ * @param {String} walletAddress - The wallet address
+ * @param {String} chain - The blockchain (polygon/solana)
+ * @returns {Promise<Object>} - The generated DID and SBT info
+ */
+async generateDID(walletAddress, chain = 'polygon') {
+  try {
+    const db = this.db;
+    
+    // Start a database transaction for atomicity
+    await db.query('BEGIN');
+    
     try {
       // Create a deterministic identifier based on the wallet address
       let didIdentifier;
@@ -52,18 +58,19 @@ class DIDService {
         RETURNING id, did, ipfs_cid
       `;
       
-      await this.db.query(query, [did, didDocument, cid]);
+      await db.query(query, [did, didDocument, cid]);
       
       // Update user record with DID
       const updateUserQuery = `
-        UPDATE users 
+        UPDATE users
         SET did = $1, updated_at = NOW()
         WHERE wallet_address = $2
         RETURNING id
       `;
       
-      const userResult = await this.db.query(updateUserQuery, [did, walletAddress]);
+      const userResult = await db.query(updateUserQuery, [did, walletAddress]);
       
+      let userId;
       if (userResult.rows.length === 0) {
         // User doesn't exist, create it
         const insertUserQuery = `
@@ -72,7 +79,10 @@ class DIDService {
           RETURNING id
         `;
         
-        await this.db.query(insertUserQuery, [walletAddress, did]);
+        const newUserResult = await db.query(insertUserQuery, [walletAddress, did]);
+        userId = newUserResult.rows[0].id;
+      } else {
+        userId = userResult.rows[0].id;
       }
       
       // Add chain identity mapping
@@ -84,14 +94,44 @@ class DIDService {
         RETURNING id
       `;
       
-      await this.db.query(chainIdentityQuery, [did, chain, walletAddress]);
+      await db.query(chainIdentityQuery, [did, chain, walletAddress]);
       
-      return did;
+      // Mint SBT on the blockchain
+      const blockchainService = require(`../services/${chain}`);
+      const sbtTokenId = await blockchainService.mintSoulboundNFT(walletAddress, did);
+      
+      if (!sbtTokenId) {
+        // If SBT minting fails, roll back the transaction
+        throw new Error('Failed to mint SBT token');
+      }
+      
+      // Create the DID to SBT mapping
+      const didToSbtQuery = `
+        INSERT INTO did_to_sbt (did, sbt_token_id, chain_id)
+        VALUES ($1, $2, $3)
+        RETURNING id
+      `;
+      
+      await db.query(didToSbtQuery, [did, sbtTokenId, chain]);
+      
+      // Commit the transaction
+      await db.query('COMMIT');
+      
+      return {
+        did,
+        sbtTokenId,
+        ipfsCid: cid
+      };
     } catch (error) {
-      console.error('Error generating DID:', error);
-      throw new Error(`Failed to generate DID: ${error.message}`);
+      // If anything fails, roll back the transaction
+      await db.query('ROLLBACK');
+      throw error;
     }
+  } catch (error) {
+    console.error('Error generating DID:', error);
+    throw new Error(`Failed to generate DID: ${error.message}`);
   }
+}
 
   /**
    * Create a DID document

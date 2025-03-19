@@ -444,4 +444,35 @@ router.post('/verify-cross-chain', hasRole('VERIFIER'), async (req, res) => {
   }
 });
 
+
+/**
+ * List credentials for an SBT token
+ */
+router.get('/sbt/:tokenId', authenticateJWT, async (req, res) => {
+  try {
+    const { tokenId } = req.params;
+    
+    // Initialize services
+    const db = req.app.get('db');
+    const redis = req.app.get('redis');
+    const didService = new DIDService(db, redis);
+    const credentialService = new CredentialService(db, redis, didService);
+    
+    // Find credentials by SBT token ID
+    const credentials = await credentialService.findCredentialsBySbt(tokenId);
+    
+    res.status(200).json({
+      success: true,
+      credentials,
+      count: credentials.length
+    });
+  } catch (error) {
+    console.error('Error listing SBT credentials:', error);
+    res.status(500).json({
+      success: false,
+      message: `Failed to list credentials: ${error.message}`
+    });
+  }
+});
+
 module.exports = router;

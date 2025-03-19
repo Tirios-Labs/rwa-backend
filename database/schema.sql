@@ -146,6 +146,30 @@ CREATE TABLE kyc_verifications (
     revoked_at TIMESTAMP WITH TIME ZONE
 );
 
+CREATE TABLE did_to_sbt (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    did VARCHAR(255) NOT NULL UNIQUE,
+    sbt_token_id BIGINT NOT NULL,
+    chain_id VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT fk_did FOREIGN KEY(did) REFERENCES did_documents(did)
+);
+
+CREATE TABLE zk_proofs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    verification_id UUID REFERENCES kyc_verifications(id) ON DELETE SET NULL,
+    proof_type VARCHAR(50) NOT NULL,
+    proof_data JSONB NOT NULL,
+    public_inputs JSONB NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+
+-- Add sbt_token_id column to credentials table
+ALTER TABLE credentials ADD COLUMN sbt_token_id BIGINT;
+CREATE INDEX idx_credentials_sbt_token_id ON credentials(sbt_token_id);
 -- Indexes for performance
 CREATE INDEX idx_credentials_subject_did ON credentials(subject_did);
 CREATE INDEX idx_credentials_issuer_did ON credentials(issuer_did);
@@ -156,3 +180,5 @@ CREATE INDEX idx_cross_chain_messages_status ON cross_chain_messages(status);
 CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX idx_kyc_verifications_status ON kyc_verifications(status);
+CREATE INDEX idx_zk_proofs_user_id ON zk_proofs(user_id);
+CREATE INDEX idx_zk_proofs_type ON zk_proofs(proof_type);
