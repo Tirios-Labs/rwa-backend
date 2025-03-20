@@ -95,7 +95,7 @@ class AuthService {
       if (chain === 'polygon') {
         // Ethereum signature verification
         try {
-          const recoveredAddress = ethers.utils.verifyMessage(challenge, signature);
+          const recoveredAddress = ethers.verifyMessage(challenge, signature);
           isValid = recoveredAddress.toLowerCase() === walletAddress.toLowerCase();
         } catch (err) {
           console.error('Ethereum signature verification error:', err);

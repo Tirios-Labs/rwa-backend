@@ -72,7 +72,7 @@ const hashMultiple = (inputs, encoding = 'hex') => {
  */
 const verifyEthereumSignature = (message, signature, address) => {
   try {
-    const recoveredAddress = ethers.utils.verifyMessage(message, signature);
+    const recoveredAddress = ethers.verifyMessage(message, signature);
     return recoveredAddress.toLowerCase() === address.toLowerCase();
   } catch (error) {
     console.error('Error verifying Ethereum signature:', error);

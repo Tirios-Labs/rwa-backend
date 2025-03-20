@@ -4,6 +4,7 @@ const { ownsDID, hasRole } = require('../middleware/auth');
 const DIDService = require('../services/did');
 const CredentialService = require('../services/credential');
 const ipfsService = require('../services/ipfs');
+const { authenticateJWT } = require('../middleware/auth');
 
 /**
  * Issue a new credential

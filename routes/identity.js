@@ -2,29 +2,28 @@ const express = require('express');
 const router = express.Router();
 const { ownsDID, hasRole } = require('../middleware/auth');
 const DIDService = require('../services/did');
+const { authenticateJWT } = require('../middleware/auth');
 
-// Initialize services with database connection in route handlers
-
-/**
- * Generate a new DID
- */
-router.post('/did', async (req, res) => {
+router.post('/did', authenticateJWT, async (req, res) => {
   try {
     const { chain } = req.body;
     const walletAddress = req.user.walletAddress;
-    
+   
     // Initialize DID service
     const db = req.app.get('db');
     const redis = req.app.get('redis');
     const didService = new DIDService(db, redis);
-    
-    // Generate a new DID
-    const did = await didService.generateDID(walletAddress, chain || 'polygon');
-    
+   
+    // Generate a new DID with atomic SBT minting
+    const result = await didService.generateDID(walletAddress, chain || 'polygon');
+   
+    // The result contains both DID and token ID information
     res.status(201).json({
       success: true,
-      did,
-      message: 'DID generated successfully'
+      did: result.did,
+      sbtTokenId: result.sbtTokenId,  // Make sure we use the numeric token ID
+      transactionHash: result.transactionHash || null,
+      message: 'DID and SBT generated successfully'
     });
   } catch (error) {
     console.error('Error generating DID:', error);
@@ -34,10 +33,6 @@ router.post('/did', async (req, res) => {
     });
   }
 });
-
-/**
- * Resolve a DID to get its DID document
- */
 router.get('/did/:did', async (req, res) => {
   try {
     const { did } = req.params;
@@ -248,35 +243,5 @@ router.post('/admin/resolve-did', hasRole('BRIDGE_ADMIN'), async (req, res) => {
   }
 });
 
-/**
- * Generate a new DID with associated SBT
- */
-router.post('/did', authenticateJWT, async (req, res) => {
-  try {
-    const { chain } = req.body;
-    const walletAddress = req.user.walletAddress;
-   
-    // Initialize DID service
-    const db = req.app.get('db');
-    const redis = req.app.get('redis');
-    const didService = new DIDService(db, redis);
-   
-    // Generate a new DID with atomic SBT minting
-    const result = await didService.generateDID(walletAddress, chain || 'polygon');
-   
-    res.status(201).json({
-      success: true,
-      did: result.did,
-      sbtTokenId: result.sbtTokenId,
-      message: 'DID and SBT generated successfully'
-    });
-  } catch (error) {
-    console.error('Error generating DID:', error);
-    res.status(500).json({
-      success: false,
-      message: `Failed to generate DID: ${error.message}`
-    });
-  }
-});
 
 module.exports = router;

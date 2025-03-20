@@ -182,3 +182,4 @@ CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX idx_kyc_verifications_status ON kyc_verifications(status);
 CREATE INDEX idx_zk_proofs_user_id ON zk_proofs(user_id);
 CREATE INDEX idx_zk_proofs_type ON zk_proofs(proof_type);
+

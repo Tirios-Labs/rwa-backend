@@ -38,7 +38,7 @@ module.exports = {
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: process.env.REDIS_PORT || 6379,
-    password: process.env.REDIS_PASSWORD || '',
+    // password: process.env.REDIS_PASSWORD || '',
     ttl: parseInt(process.env.REDIS_TTL || '3600') // Default 1 hour
   },
   
@@ -52,8 +52,8 @@ module.exports = {
   polygon: {
     rpcUrl: process.env.POLYGON_RPC_URL || process.env.AMOY_RPC_URL,
     chainId: process.env.POLYGON_CHAIN_ID || '80002', // Amoy testnet
-    bridgeAddress: process.env.POLYGON_BRIDGE_ADDRESS || '0x0000000000000000000000000000000000000000',
-    soulboundNFTAddress: process.env.POLYGON_SOULBOUND_ADDRESS || '0x0000000000000000000000000000000000000000',
+    bridgeAddress: process.env.POLYGON_BRIDGE_ADDRESS || '0xEDe05747FB7d095d3562e7169B5632A3fBe6e9Bd',
+    soulboundNFTAddress: process.env.POLYGON_SOULBOUND_ADDRESS || '0x224434fd5e24Cc3EA7E227327B6f4be0A43969F9 ',
     privateKey: process.env.POLYGON_PRIVATE_KEY || process.env.PRIVATE_KEY,
     gasLimit: parseInt(process.env.POLYGON_GAS_LIMIT || '3000000')
   },

@@ -22,8 +22,8 @@ const generateDIDFromEthAddress = (address, network = 'polygon', salt = '') => {
   const normalizedAddress = address.toLowerCase();
   
   // Create a deterministic identifier
-  const identifier = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes(`${normalizedAddress}:${network}:${salt || Date.now()}`)
+  const identifier = ethers.keccak256(
+    ethers.toUtf8Bytes(`${normalizedAddress}:${network}:${salt || Date.now()}`)
   ).slice(2, 42); // Take 40 chars from the hash
   
   return `did:${DID_METHOD}:${identifier}`;

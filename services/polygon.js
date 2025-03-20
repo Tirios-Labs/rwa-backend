@@ -1,4 +1,8 @@
 const ethers = require('ethers');
+
+
+
+
 let config;
 
 try {
@@ -82,6 +86,42 @@ try {
 }
 
 class PolygonService {
+
+  /**
+ * Get the provider instance
+ * @returns {ethers.Provider} - The provider
+ */
+getProvider() {
+  if (!this.provider) {
+    throw new Error('Provider not initialized');
+  }
+  return this.provider;
+}
+
+/**
+ * Get the wallet/signer instance
+ * @param {ethers.Provider} provider - The provider
+ * @returns {ethers.Wallet} - The wallet
+ */
+getWallet(provider) {
+  if (!this.wallet) {
+    throw new Error('Wallet not initialized');
+  }
+  return this.wallet;
+}
+
+/**
+ * Get the SoulboundNFT contract instance
+ * @param {ethers.Provider} provider - The provider
+ * @param {ethers.Wallet} signer - The signer
+ * @returns {ethers.Contract} - The contract
+ */
+getSoulboundNFTContract(provider, signer) {
+  if (!this.soulboundContract) {
+    throw new Error('SoulboundNFT contract not initialized');
+  }
+  return this.soulboundContract;
+}
   constructor() {
     try {
       // Initialize provider
@@ -235,76 +275,134 @@ class PolygonService {
   }
 
 
-  /**
- * Mint a new Soulbound NFT for a user
- * @param {String} walletAddress - User wallet address
- * @param {String} did - The DID to associate
- * @returns {Promise<Number>} - The token ID
- */
-  async mintSoulboundNFT(walletAddress, did) {
+  async mintSoulboundNFT(walletAddress, did, additionalParams = {}) {
     try {
-      // Initialize provider and contract
-      const provider = this.getProvider();
-      const signer = this.getWallet(provider);
-      const soulboundNFTContract = this.getSoulboundNFTContract(provider, signer);
-
-      // Generate a credential hash for the initial identity credential
-      const credentialData = {
-        type: 'IdentityCredential',
-        did: did,
-        createdAt: new Date().toISOString()
+      console.log("Starting Soulbound NFT minting process...");
+      console.log(`Target wallet: ${walletAddress}`);
+      console.log(`DID: ${did}`);
+      
+      // Get contract address from environment or config
+      const soulboundNFTAddress = 
+        process.env.POLYGON_SOULBOUND_ADDRESS || 
+        config.polygon.soulboundNFTAddress;
+      
+      if (!soulboundNFTAddress) {
+        throw new Error('Soulbound NFT contract address not configured');
+      }
+      
+      // Initialize provider
+      const provider = new ethers.JsonRpcProvider(
+        process.env.POLYGON_RPC_URL || config.polygon.rpcUrl
+      );
+      
+      // Initialize wallet with private key
+      const wallet = new ethers.Wallet(
+        process.env.POLYGON_PRIVATE_KEY || config.polygon.privateKey, 
+        provider
+      );
+      
+      // Check wallet balance with more robust checks
+      const balance = await provider.getBalance(wallet.address);
+      const balanceInEther = ethers.formatEther(balance);
+      console.log(`Wallet balance: ${balanceInEther} MATIC`);
+      
+      const MIN_BALANCE_THRESHOLD = 0.01; // MATIC
+      if (parseFloat(balanceInEther) < MIN_BALANCE_THRESHOLD) {
+        console.warn(`WARNING: Low wallet balance (${balanceInEther} MATIC)`);
+        console.warn(`Minimum recommended balance: ${MIN_BALANCE_THRESHOLD} MATIC`);
+      }
+      
+      // Comprehensive ABI with all potentially useful methods
+      const contractAbi = [
+        "function verifyIdentity(address entity, string memory did, bytes32 credentialHash, string memory credentialCID, uint256 expirationTime) external",
+        "function getTokenIdByDID(string memory did) external view returns (uint256)",
+        "function hasRole(bytes32 role, address account) external view returns (bool)",
+        "function VERIFIER_ROLE() external view returns (bytes32)"
+      ];
+      
+      // Create contract instance
+      const contract = new ethers.Contract(soulboundNFTAddress, contractAbi, wallet);
+      
+      // Role verification with more robust error handling
+      try {
+        const VERIFIER_ROLE = await contract.VERIFIER_ROLE();
+        const hasVerifierRole = await contract.hasRole(VERIFIER_ROLE, wallet.address);
+        
+        if (!hasVerifierRole) {
+          console.error("ERROR: Wallet does not have VERIFIER_ROLE");
+          throw new Error("Insufficient permissions to mint tokens");
+        }
+      } catch (roleError) {
+        console.warn("Could not definitively check roles:", roleError.message);
+        // Optionally continue, but log a warning
+      }
+      
+      // Allow overriding of default parameters
+      const credentialHash = additionalParams.credentialHash || 
+        ethers.keccak256(ethers.toUtf8Bytes(did));
+      
+      const credentialCID = additionalParams.credentialCID || 
+        `ipfs://did-credential-${did.slice(-12)}`;
+      
+      const expirationTime = additionalParams.expirationTime || 
+        Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60); // 1 year from now
+      
+      // Detailed transaction parameters
+      const txParams = {
+        gasLimit: additionalParams.gasLimit || 3000000,
+        // Optional: add maxPriorityFeePerGas for EIP-1559 transactions
+        ...(additionalParams.maxPriorityFeePerGas && {
+          maxPriorityFeePerGas: additionalParams.maxPriorityFeePerGas
+        })
       };
-
-      const credentialHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(JSON.stringify(credentialData))
-      );
-
-      const credentialCID = 'ipfs://placeholder'; // In practice, you'd store this in IPFS
-
-      // Estimate gas for the transaction
-      const gasEstimate = await soulboundNFTContract.estimateGas.verifyIdentity(
-        walletAddress,
-        did,
-        credentialHash,
-        credentialCID
-      );
-
-      // Include a buffer for gas
-      const gasLimit = gasEstimate.mul(120).div(100); // 120% of estimate
-
-      // Execute the transaction
-      const tx = await soulboundNFTContract.verifyIdentity(
+      
+      // Call verifyIdentity with all parameters
+      const tx = await contract.verifyIdentity(
         walletAddress,
         did,
         credentialHash,
         credentialCID,
-        { gasLimit }
+        expirationTime,
+        txParams
       );
-
-      // Wait for transaction to be confirmed
-      const receipt = await tx.wait(1); // Wait for 1 confirmation
-
-      // Get the token ID from the event logs
-      let tokenId = null;
-      for (const event of receipt.events) {
-        if (event.event === 'IdentityVerified') {
-          tokenId = event.args.tokenId.toNumber();
-          break;
-        }
-      }
-
-      if (!tokenId) {
-        throw new Error('Failed to get token ID from transaction receipt');
-      }
-
-      console.log(`Minted SBT with token ID ${tokenId} for DID ${did}`);
-      return tokenId;
+      
+      console.log(`Transaction sent: ${tx.hash}`);
+      
+      // Wait for confirmation with configurable confirmations
+      const confirmations = additionalParams.confirmations || 1;
+      const receipt = await tx.wait(confirmations);
+      
+      console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
+      
+      // Get and return token ID
+      const tokenId = await contract.getTokenIdByDID(did);
+      const tokenIdNumber = Number(tokenId);
+      
+      console.log(`SBT minted with token ID: ${tokenIdNumber}`);
+      
+      return {
+        tokenId: tokenIdNumber,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber
+      };
+      
     } catch (error) {
       console.error('Error minting Soulbound NFT:', error);
-      throw new Error(`Failed to mint Soulbound NFT: ${error.message}`);
+      
+      // Enhanced error handling with more context
+      const errorDetails = {
+        message: error.message,
+        code: error.code,
+        reason: error.reason,
+        // Add more context if available
+        ...(error.error && { 
+          details: error.error.message 
+        })
+      };
+      
+      throw new Error(JSON.stringify(errorDetails, null, 2));
     }
   }
-
   /**
    * Update an SBT token with credential information
    * @param {Number} tokenId - The SBT token ID
@@ -324,7 +422,7 @@ class PolygonService {
       if (credentialHash.startsWith('0x') && credentialHash.length === 66) {
         bytes32Hash = credentialHash;
       } else {
-        bytes32Hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(credentialHash));
+        bytes32Hash = ethers.keccak256(ethers.toUtf8Bytes(credentialHash));
       }
 
       // Call the contract method
@@ -359,7 +457,7 @@ class PolygonService {
       const soulboundNFTContract = this.getSoulboundNFTContract(provider, signer);
 
       // Ensure the merkle root is in the right format
-      const bytes32Root = ethers.utils.hexlify(ethers.utils.zeroPad(merkleRoot, 32));
+      const bytes32Root = ethers.hexlify(ethers.zeroPad(merkleRoot, 32));
 
       // Call the contract method
       const tx = await soulboundNFTContract.updateCredentialsMerkleRoot(

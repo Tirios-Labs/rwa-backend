@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { Pool } = require('pg');
+const Redis = require('ioredis'); // Import Redis
 
 // Import routes
 const identityRoutes = require('./routes/identity');
@@ -27,8 +28,52 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-
 app.set('db', pool);
+
+// Setup Redis connection
+const setupRedis = () => {
+  try {
+    const redisConfig = {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT) || 6379,
+      password: process.env.REDIS_PASSWORD || null,
+      db: parseInt(process.env.REDIS_DB) || 0,
+      // Connection options
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      maxRetriesPerRequest: null,
+      enableReadyCheck: true,
+      keepAlive: 10000,
+    };
+
+    const redisClient = new Redis(redisConfig);
+    
+    redisClient.on('error', (err) => {
+      console.error('Redis client error:', err);
+    });
+    
+    redisClient.on('connect', () => {
+      console.log(`Redis client connected to ${redisConfig.host}:${redisConfig.port}`);
+    });
+    
+    return redisClient;
+  } catch (error) {
+    console.error('Error creating Redis client:', error);
+    // Fallback to memory cache if Redis connection fails
+    const memoryCache = require('./services/memoryCache');
+    console.warn('Using in-memory cache as fallback');
+    return memoryCache;
+  }
+};
+
+// Initialize Redis client or fallback to memory cache
+const useRedis = process.env.USE_REDIS === 'true';
+const cacheClient = useRedis ? setupRedis() : require('./services/memoryCache');
+app.set('redis', cacheClient);
+
+console.log(`Cache mode: ${useRedis ? 'Redis' : 'In-memory'}`);
 
 // Basic security middleware
 app.use(helmet());
@@ -59,11 +104,33 @@ app.use('/api/admin', authenticateJWT, adminRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  const redisStatus = cacheClient.status || 'unknown';
+  res.status(200).json({
+    status: 'ok',
+    database: 'connected',
+    cache: useRedis ? 'redis' : 'memory',
+    cacheStatus: redisStatus,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Error handling middleware
 app.use(errorHandler);
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('Shutting down server...');
+  
+  if (useRedis && cacheClient.quit) {
+    console.log('Closing Redis connection...');
+    await cacheClient.quit();
+  }
+  
+  await pool.end();
+  console.log('Database connections closed');
+  
+  process.exit(0);
+});
 
 // Export app for testing
 module.exports = app;

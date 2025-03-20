@@ -21,7 +21,7 @@ const networks = {
     explorer: 'https://amoy.polygonscan.com',
     contracts: {
       soulboundNFT: {
-        address: process.env.POLYGON_SOULBOUND_ADDRESS || '0x26F28bAEF4813d6768Ce70B7f4b2f4827A5D738D',
+        address: process.env.POLYGON_SOULBOUND_ADDRESS || '0x224434fd5e24Cc3EA7E227327B6f4be0A43969F9 ',
         abi: SoulboundNFTABI
       },
       crossChainBridge: {

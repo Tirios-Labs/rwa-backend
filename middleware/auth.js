@@ -267,11 +267,18 @@ const rateLimit = (options = {}) => {
       next(error);
     }
   };
+
+  function isAdmin(req, res, next) {
+    if (!req.user || !req.user.roles.some(r => r.name === 'ADMIN')) {
+      return res.status(403).json({ error: 'Admin access required' });  
+    }
+    next();
+  }
 };
 
 module.exports = {
   authenticateJWT,
   hasRole,
   ownsDID,
-  rateLimit
+  rateLimit,
 };
