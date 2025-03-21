@@ -11,6 +11,7 @@ const identityRoutes = require('./routes/identity');
 const credentialRoutes = require('./routes/credential');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const kycRoutes = require('./routes/kycRoutes');
 
 // Import middleware
 const { errorHandler } = require('./middleware/error');
@@ -75,6 +76,9 @@ app.set('redis', cacheClient);
 
 console.log(`Cache mode: ${useRedis ? 'Redis' : 'In-memory'}`);
 
+// Middleware to capture raw body for webhook verification
+app.use('/api/kyc/webhook', express.raw({ type: 'application/json' }));
+
 // Basic security middleware
 app.use(helmet());
 app.use(cors());
@@ -101,6 +105,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/identity', authenticateJWT, identityRoutes);
 app.use('/api/credential', authenticateJWT, credentialRoutes);
 app.use('/api/admin', authenticateJWT, adminRoutes);
+app.use('/api/kyc', kycRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

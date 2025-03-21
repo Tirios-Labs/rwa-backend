@@ -12,6 +12,7 @@
         "seed": "node scripts/seed.js"
     },
     "dependencies": {
+        "@onfido/api": "^5.0.0",
         "@pinata/sdk": "^2.1.0",
         "@project-serum/anchor": "^0.26.0",
         "@solana/spl-token": "^0.4.0",
@@ -32,6 +33,7 @@
         "morgan": "^1.10.0",
         "multer": "^1.4.5-lts.1",
         "node-cache": "^5.1.2",
+        "onfido-sdk-ui": "^14.43.0",
         "pg": "^8.14.1",
         "redis": "^4.7.0",
         "uuid": "^9.0.1",
