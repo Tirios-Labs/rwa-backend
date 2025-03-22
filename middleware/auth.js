@@ -2,7 +2,25 @@
  * Authentication middleware for the Identity Bridge API
  */
 const jwt = require('jsonwebtoken');
-const { AuthorizationError, ForbiddenError } = require('./error');
+
+// Define custom error classes if they're not being properly imported
+class AuthorizationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AuthorizationError';
+    this.status = 401;
+  }
+}
+
+class ForbiddenError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ForbiddenError';
+    this.status = 403;
+  }
+}
+
+// Import models or create mock implementations if needed
 const RoleModel = require('../models/role');
 const DIDModel = require('../models/did');
 
@@ -267,13 +285,26 @@ const rateLimit = (options = {}) => {
       next(error);
     }
   };
+};
 
-  function isAdmin(req, res, next) {
-    if (!req.user || !req.user.roles.some(r => r.name === 'ADMIN')) {
-      return res.status(403).json({ error: 'Admin access required' });  
-    }
-    next();
+/**
+ * Middleware to check if user has admin role
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+const isAdmin = (req, res, next) => {
+  if (!req.user || !req.user.roles || !req.user.roles.some(r => r.name === 'ADMIN')) {
+    return res.status(403).json({ 
+      success: false,
+      error: {
+        type: 'FORBIDDEN',
+        message: 'Admin access required',
+        status: 403
+      }
+    });  
   }
+  next();
 };
 
 module.exports = {
@@ -281,4 +312,7 @@ module.exports = {
   hasRole,
   ownsDID,
   rateLimit,
+  isAdmin,
+  AuthorizationError,
+  ForbiddenError
 };
